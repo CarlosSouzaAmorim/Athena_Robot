@@ -8,6 +8,36 @@ MODEL_BASE="$HOME/Athena/_VOZES"
 VENV_DIR="$HOME/esp32_ollama_virtual/venv"
 REQUIRED_APT_PACKAGES=(python3 python3-venv python3-pip curl wget)
 
+# Lista de modelos disponíveis
+declare -A OLLAMA_MODELS=(
+    ["gemma3:1b"]="Gemma 3 1B - 815MB"
+    ["gemma3"]="Gemma 3 4B - 3.3GB"
+    ["gemma3:12b"]="Gemma 3 12B - 8.1GB"
+    ["gemma3:27b"]="Gemma 3 27B - 17GB"
+    ["qwq"]="QwQ 32B - 20GB"
+    ["deepseek-r1"]="DeepSeek-R1 7B - 4.7GB"
+    ["deepseek-r1:671b"]="DeepSeek-R1 671B - 404GB"
+    ["llama4:scout"]="Llama 4 109B - 67GB"
+    ["llama4:maverick"]="Llama 4 400B - 245GB"
+    ["llama3.3"]="Llama 3.3 70B - 43GB"
+    ["llama3.2"]="Llama 3.2 3B - 2.0GB"
+    ["llama3.2:1b"]="Llama 3.2 1B - 1.3GB"
+    ["llama3.2-vision"]="Llama 3.2 Vision 11B - 7.9GB"
+    ["llama3.2-vision:90b"]="Llama 3.2 Vision 90B - 55GB"
+    ["llama3.1"]="Llama 3.1 8B - 4.7GB"
+    ["llama3.1:405b"]="Llama 3.1 405B - 231GB"
+    ["phi4"]="Phi 4 14B - 9.1GB"
+    ["phi4-mini"]="Phi 4 Mini 3.8B - 2.5GB"
+    ["mistral"]="Mistral 7B - 4.1GB"
+    ["moondream"]="Moondream 2 1.4B - 829MB"
+    ["neural-chat"]="Neural Chat 7B - 4.1GB"
+    ["starling-lm"]="Starling 7B - 4.1GB"
+    ["codellama"]="Code Llama 7B - 3.8GB"
+    ["llama2-uncensored"]="Llama 2 Uncensored 7B - 3.8GB"
+    ["llava"]="LLaVA 7B - 4.5GB"
+    ["granite3.3"]="Granite-3.3 8B - 4.9GB"
+)
+
 # Funções utilitárias
 check_internet() {
     if ping -c1 -W2 8.8.8.8 >/dev/null 2>&1; then
@@ -26,6 +56,40 @@ confirm() {
         [Yy]|[Yy][Ee][Ss]) return 0;;
         *) return 1;;
     esac
+}
+
+select_model() {
+    echo ""
+    echo "=== Modelos Ollama Disponíveis ==="
+    echo "Selecione um modelo para instalar:"
+    echo ""
+    
+    local i=1
+    local model_names=()
+    
+    # Criar arrays para ordenação
+    for model in "${!OLLAMA_MODELS[@]}"; do
+        model_names[$i]="$model"
+        echo "$i. ${OLLAMA_MODELS[$model]}"
+        ((i++))
+    done
+    
+    echo ""
+    read -r -p "Digite o número do modelo (ou Enter para pular): " choice
+    
+    if [[ -z "$choice" ]]; then
+        echo "Nenhum modelo selecionado."
+        return 1
+    fi
+    
+    if [[ "$choice" =~ ^[0-9]+$ ]] && [[ "$choice" -ge 1 ]] && [[ "$choice" -le "${#model_names[@]}" ]]; then
+        SELECTED_MODEL="${model_names[$choice]}"
+        echo "Modelo selecionado: $SELECTED_MODEL - ${OLLAMA_MODELS[$SELECTED_MODEL]}"
+        return 0
+    else
+        echo "Seleção inválida."
+        return 1
+    fi
 }
 
 # Início do script
@@ -122,13 +186,17 @@ start_ollama_server || true
 echo ""
 echo "=== Download do Modelo Ollama ==="
 if [ "$HAVE_INTERNET" -eq 1 ] && command -v ollama >/dev/null 2>&1; then
-    if confirm "Deseja baixar o modelo gemma3:1b (~800MB)?"; then
-        echo "Baixando modelo gemma3:1b..."
-        ollama pull gemma3:1b
-        echo "Modelo baixado com sucesso!"
+    if select_model; then
+        if confirm "Deseja baixar o modelo '$SELECTED_MODEL' (${OLLAMA_MODELS[$SELECTED_MODEL]})?"; then
+            echo "Baixando modelo $SELECTED_MODEL..."
+            ollama pull "$SELECTED_MODEL"
+            echo "Modelo baixado com sucesso!"
+        else
+            echo "Pulando download do modelo conforme solicitado."
+            echo "Você pode baixá-lo manualmente com: ollama pull $SELECTED_MODEL"
+        fi
     else
-        echo "Pulando download do modelo conforme solicitado."
-        echo "Você pode baixá-lo manualmente com: ollama pull gemma3:1b"
+        echo "Nenhum modelo selecionado para download."
     fi
 else
     if [ "$HAVE_INTERNET" -eq 0 ]; then
@@ -173,7 +241,6 @@ echo "   Se preferir iniciar manualmente, pare o processo e rode: ollama serve"
 echo ""
 echo "2. Em outro terminal, ativar o ambiente e executar o servidor Flask:"
 echo "   source $VENV_DIR/bin/activate"
-#source /home/amorim/esp32_ollama_virtual/venv/bin/activate
 echo "   python ollama_esp_server.py"
 echo ""
 echo "3. Testar o servidor (em outro terminal):"
@@ -182,4 +249,8 @@ echo ""
 echo "Observações:"
 echo " - Ollama rodará em http://localhost:11434"
 echo " - Servidor Flask rodará em http://0.0.0.0:5005"
-echo " - Modelo instalado: gemma3:1b"
+if [ -n "${SELECTED_MODEL:-}" ]; then
+    echo " - Modelo instalado: $SELECTED_MODEL"
+else
+    echo " - Nenhum modelo instalado via script"
+fi
