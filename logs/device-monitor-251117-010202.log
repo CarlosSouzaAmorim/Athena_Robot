@@ -1,0 +1,31 @@
+.............................
+WiFi connection failed!
+
+=== ESP32 Ollama Client ===
+Available commands:
+setwifi:ssid,password  - Change WiFi credentials
+setip:192.168.x.x      - Change server IP
+setport:5005           - Change server port
+status                  - Show current status
+connect                 - Attempt WiFi connection
+disconnect              - Disconnect WiFi
+Your question here      - Send query to Ollama
+===========================
+
+Attempting WiFi connection with current credentials...
+Attempting to connect to WiFi: TP-LINK_7EF4
+.............................
+WiFi connection failed!
+Attempting WiFi connection with current credentials...
+Attempting to connect to WiFi: TP-LINK_7EF4
+.............................
+WiFi connection failed!
+Attempting WiFi connection with current credentials...
+Attempting to connect to WiFi: TP-LINK_7EF4
+.............................
+WiFi connection failed!
+Error: Not connected to WiFi. Use 'connect' or 'setwifi:ssid,pass'
+Attempting WiFi connection with current credentials...
+Attempting to connect to WiFi: TP-LINK_7EF4
+.............................
+WiFi connection failed!

@@ -27,7 +27,7 @@ String serverModel = "unknown";
 // WiFi connection state
 bool wifiConnected = false;
 unsigned long lastWifiAttempt = 0;
-const unsigned long WIFI_RETRY_INTERVAL = 10000; // 10 seconds
+const unsigned long WIFI_RETRY_INTERVAL = 20000; // 20 seconds
 
 // ---------------- BUTTONS ----------------
 #define BTN1 12
@@ -167,6 +167,7 @@ void attemptWiFiConnection() {
       display.println("setwifi:ssid,pass");
       display.println("Current: " + wifiSSID);
       display.display();
+      delay(WIFI_RETRY_INTERVAL) ; // TEMPO MAIOR PARA INSERIR COMANDO NA SERIAL
     }
     lastWifiAttempt = millis();
   }
@@ -341,6 +342,7 @@ void processSerialCommand(String cmd) {
         displayWelcome();
       }
     } else {
+     
       Serial.println("Invalid format. Use: setwifi:ssid,password");
     }
   }

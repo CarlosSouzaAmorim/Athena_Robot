@@ -1,0 +1,49 @@
+F����␀��F␀_�$a␘h:␒�n�␁␃␆�
+jAttempting to connect to WiFi: TP-LINK_7EF4
+.............................
+WiFi connection failed!
+
+=== ESP32 Ollama Client ===
+Available commands:
+setwifi:ssid,password  - Change WiFi credentials
+setip:192.168.x.x      - Change server IP
+setport:5005           - Change server port
+status                  - Show current status
+connect                 - Attempt WiFi connection
+disconnect              - Disconnect WiFi
+Your question here      - Send query to Ollama
+===========================
+
+Attempting WiFi connection with current credentials...
+Attempting to connect to WiFi: TP-LINK_7EF4
+.............................
+WiFi connection failed!
+WiFi credentials updated:
+SSID: Casa_7
+Password: topgun12setwifi:Casa_7,topgun12
+Attempting to connect to WiFi: Casa_7
+.............................
+WiFi connection failed!
+WiFi credentials updated:
+SSID: Casa_7
+Password: topgun12
+Attempting to connect to WiFi: Casa_7
+......
+WiFi connected!
+IP address: 192.168.0.114
+
+--- SERVER RESPONSE ---
+
+--- END RESPONSE ---
+
+
+--- SERVER RESPONSE ---
+Why did the scarecrow win an award? 
+
+Because he was outstanding in his field! 😄 
+
+---
+
+Would you like to hear another one? 😊
+--- END RESPONSE ---
+
