@@ -47,3 +47,29 @@ Because he was outstanding in his field! 😄
 Would you like to hear another one? 😊
 --- END RESPONSE ---
 
+AgD␃)␐␇"0$%u��␘3(1.␁�␄���P�Attempting to connect to WiFi: TP-LINK_7EF4
+..
+WiFi connected!
+IP address: 192.168.1.100
+
+=== ESP32 Ollama Client ===
+Available commands:
+setwifi:ssid,password  - Change WiFi credentials
+setip:192.168.x.x      - Change server IP
+setport:5005           - Change server port
+status                  - Show current status
+connect                 - Attempt WiFi connection
+disconnect              - Disconnect WiFi
+Your question here      - Send query to Ollama
+===========================
+
+
+--- SERVER RESPONSE ---
+
+--- END RESPONSE ---
+
+
+--- SERVER RESPONSE ---
+5 mais 5 é igual a **10
+--- END RESPONSE ---
+

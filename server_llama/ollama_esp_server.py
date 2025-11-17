@@ -4,7 +4,11 @@ import json
 
 app = Flask(__name__)
 OLLAMA_URL = "http://localhost:11434/api/generate"
-MODEL = "gemma3:1b"
+# Define the model to be used
+MODEL = "gemma3:1b" # Use this line for the smaller model 800mb
+#MODEL = "gemma3" # Use this line for the full model 4gb
+#MODEL = "llama3" # Use this line for the full model 7gb
+#MODEL = "deepseek-r1" # Use this line for the deepseek model    4,7gb
 
 @app.route("/model", methods=["GET"])
 def get_model():
