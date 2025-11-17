@@ -206,7 +206,7 @@ void displayWelcome() {
   clearDisplayText();
   display.setTextSize(1);
   display.setTextColor(SSD1306_WHITE);
-  display.println("Ready!");
+  display.println("Conectado: Ready!");
   display.println("SSID: " + String(ssid));
   display.println("IP: " + WiFi.localIP().toString());
   display.println("Server: " + serverIP);
