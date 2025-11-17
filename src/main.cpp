@@ -12,16 +12,22 @@
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 // ---------------- WIFI CONFIG ----------------
-const char* ssid = "TP-LINK_7EF4";
-const char* password = "casa7654";
+// Default credentials - can be changed via serial
+String wifiSSID = "TP-LINK_7EF4";
+String wifiPassword = "casa7654";
 
-// IMPORTANT: Change this to the IP of your PC running Ollama server:
+// Server configuration
 String serverIP = "192.168.0.118";
 int serverPort = 5005;
 String serverURL = "http://" + serverIP + ":" + String(serverPort) + "/ask_stream";
 
 // New: model string reported by server
 String serverModel = "unknown";
+
+// WiFi connection state
+bool wifiConnected = false;
+unsigned long lastWifiAttempt = 0;
+const unsigned long WIFI_RETRY_INTERVAL = 10000; // 10 seconds
 
 // ---------------- BUTTONS ----------------
 #define BTN1 12
@@ -38,6 +44,19 @@ int cursorY = 0;
 String currentLine = "";
 String displayBuffer[8];  // 8 lines max (64px / 8px per line)
 int bufferLines = 0;
+
+// Forward declarations - REMOVE DEFAULT VALUES FROM DECLARATIONS
+void addLineToBuffer(String line);
+void refreshDisplay();
+void clearDisplayText();
+void printToken(String t);
+bool connectToWiFi(String ssid, String password, int timeout); // No default value here
+void attemptWiFiConnection();
+void saveWiFiCredentials(String ssid, String password);
+void askOllamaStream(String question);
+void fetchServerModel();
+void displayWelcome();
+void processSerialCommand(String cmd);
 
 void addLineToBuffer(String line) {
   if (bufferLines < 8) {
@@ -103,8 +122,116 @@ void printToken(String t) {
   refreshDisplay();
 }
 
+// ---------------- WIFI MANAGEMENT ----------------
+// DEFAULT VALUE ONLY IN FUNCTION DEFINITION, NOT IN DECLARATION
+bool connectToWiFi(String ssid, String password, int timeout = 15000) {
+  clearDisplayText();
+  display.println("Connecting to:");
+  display.println(ssid);
+  display.display();
+  
+  Serial.println("Attempting to connect to WiFi: " + ssid);
+  
+  WiFi.begin(ssid.c_str(), password.c_str());
+  
+  unsigned long startTime = millis();
+  while (WiFi.status() != WL_CONNECTED && millis() - startTime < timeout) {
+    delay(500);
+    Serial.print(".");
+    display.print(".");
+    display.display();
+  }
+  
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("\nWiFi connected!");
+    Serial.println("IP address: " + WiFi.localIP().toString());
+    wifiConnected = true;
+    return true;
+  } else {
+    Serial.println("\nWiFi connection failed!");
+    wifiConnected = false;
+    return false;
+  }
+}
+
+void attemptWiFiConnection() {
+  if (millis() - lastWifiAttempt > WIFI_RETRY_INTERVAL) {
+    Serial.println("Attempting WiFi connection with current credentials...");
+    if (connectToWiFi(wifiSSID, wifiPassword)) {
+      fetchServerModel();
+      displayWelcome();
+    } else {
+      clearDisplayText();
+      display.println("WiFi failed!");
+      display.println("Use serial to set:");
+      display.println("setwifi:ssid,pass");
+      display.println("Current: " + wifiSSID);
+      display.display();
+    }
+    lastWifiAttempt = millis();
+  }
+}
+
+void saveWiFiCredentials(String ssid, String password) {
+  wifiSSID = ssid;
+  wifiPassword = password;
+  
+  // Here you could save to EEPROM for persistence
+  // For now, we just update the variables
+  Serial.println("WiFi credentials updated:");
+  Serial.println("SSID: " + wifiSSID);
+  Serial.println("Password: " + wifiPassword);
+}
+
+// New: fetch model info from server /model endpoint
+void fetchServerModel() {
+  if (!wifiConnected) return;
+  
+  HTTPClient http;
+  String url = "http://" + serverIP + ":" + String(serverPort) + "/model";
+  http.begin(url);
+  int code = http.GET();
+  if (code == 200) {
+    String body = http.getString();
+    DynamicJsonDocument doc(256);
+    auto err = deserializeJson(doc, body);
+    if (!err && doc.containsKey("model")) {
+      serverModel = doc["model"].as<String>();
+    } else {
+      serverModel = "parse_err";
+    }
+  } else {
+    serverModel = "no_resp";
+  }
+  http.end();
+}
+
+void displayWelcome() {
+  clearDisplayText();
+  display.setTextSize(1);
+  display.setTextColor(SSD1306_WHITE);
+  display.println("Conectado: Ready!");
+  display.println("SSID: " + wifiSSID);
+  display.println("IP: " + WiFi.localIP().toString());
+  display.println("Server: " + serverIP);
+  display.println("Port: " + String(serverPort));
+  display.println("Model: " + serverModel); // show model here
+  display.display();
+  delay(500);
+}
+
 // ---------------- STREAMING REQUEST ----------------
 void askOllamaStream(String question) {
+  if (!wifiConnected) {
+    clearDisplayText();
+    display.println("No WiFi!");
+    display.println("Connect first");
+    display.display();
+    delay(2000);
+    displayWelcome();
+    return;
+  }
+
   WiFiClient client;
 
   if (!client.connect(serverIP.c_str(), serverPort)) {
@@ -181,48 +308,50 @@ void askOllamaStream(String question) {
   Serial.println("--- END RESPONSE ---\n");
 }
 
-// New: fetch model info from server /model endpoint
-void fetchServerModel() {
-  HTTPClient http;
-  String url = "http://" + serverIP + ":" + String(serverPort) + "/model";
-  http.begin(url);
-  int code = http.GET();
-  if (code == 200) {
-    String body = http.getString();
-    DynamicJsonDocument doc(256);
-    auto err = deserializeJson(doc, body);
-    if (!err && doc.containsKey("model")) {
-      serverModel = doc["model"].as<String>();
-    } else {
-      serverModel = "parse_err";
-    }
-  } else {
-    serverModel = "no_resp";
-  }
-  http.end();
-}
-
-void displayWelcome() {
-  clearDisplayText();
-  display.setTextSize(1);
-  display.setTextColor(SSD1306_WHITE);
-  display.println("Conectado: Ready!");
-  display.println("SSID: " + String(ssid));
-  display.println("IP: " + WiFi.localIP().toString());
-  display.println("Server: " + serverIP);
-  display.println("Port: " + String(serverPort));
-  display.println("Model: " + serverModel); // show model here
-  display.display();
-  delay(500);
-}
-
 void processSerialCommand(String cmd) {
-  if (cmd.startsWith("setip:")) {
+  cmd.trim();
+  
+  if (cmd.startsWith("setwifi:")) {
+    // Format: setwifi:ssid,password
+    String credentials = cmd.substring(8);
+    int commaPos = credentials.indexOf(',');
+    
+    if (commaPos != -1) {
+      String newSSID = credentials.substring(0, commaPos);
+      String newPassword = credentials.substring(commaPos + 1);
+      
+      saveWiFiCredentials(newSSID, newPassword);
+      
+      clearDisplayText();
+      display.println("New WiFi set:");
+      display.println("SSID: " + newSSID);
+      display.println("Connecting...");
+      display.display();
+      
+      if (connectToWiFi(newSSID, newPassword)) {
+        fetchServerModel();
+        displayWelcome();
+      } else {
+        clearDisplayText();
+        display.println("WiFi connect");
+        display.println("failed!");
+        display.println("Check credentials");
+        display.display();
+        delay(3000);
+        displayWelcome();
+      }
+    } else {
+      Serial.println("Invalid format. Use: setwifi:ssid,password");
+    }
+  }
+  else if (cmd.startsWith("setip:")) {
     serverIP = cmd.substring(6);
     // update URL if used elsewhere
     serverURL = "http://" + serverIP + ":" + String(serverPort) + "/ask_stream";
     // fetch model after change
-    fetchServerModel();
+    if (wifiConnected) {
+      fetchServerModel();
+    }
     clearDisplayText();
     display.println("IP updated to:");
     display.println(serverIP);
@@ -233,7 +362,9 @@ void processSerialCommand(String cmd) {
   else if (cmd.startsWith("setport:")) {
     serverPort = cmd.substring(8).toInt();
     serverURL = "http://" + serverIP + ":" + String(serverPort) + "/ask_stream";
-    fetchServerModel();
+    if (wifiConnected) {
+      fetchServerModel();
+    }
     clearDisplayText();
     display.println("Port updated to:");
     display.println(String(serverPort));
@@ -241,7 +372,36 @@ void processSerialCommand(String cmd) {
     delay(2000);
     displayWelcome();
   }
+  else if (cmd == "status") {
+    Serial.println("=== STATUS ===");
+    Serial.println("WiFi SSID: " + wifiSSID);
+    Serial.println("WiFi Connected: " + String(wifiConnected ? "Yes" : "No"));
+    if (wifiConnected) {
+      Serial.println("IP: " + WiFi.localIP().toString());
+    }
+    Serial.println("Server: " + serverIP + ":" + String(serverPort));
+    Serial.println("Model: " + serverModel);
+    Serial.println("==============");
+  }
+  else if (cmd == "connect") {
+    attemptWiFiConnection();
+  }
+  else if (cmd == "disconnect") {
+    WiFi.disconnect();
+    wifiConnected = false;
+    clearDisplayText();
+    display.println("WiFi disconnected");
+    display.display();
+    delay(2000);
+    displayWelcome();
+  }
   else {
+    // Only process queries if WiFi is connected
+    if (!wifiConnected) {
+      Serial.println("Error: Not connected to WiFi. Use 'connect' or 'setwifi:ssid,pass'");
+      return;
+    }
+    
     // Mostrar a query na tela (usando buffer) antes de enviar
     clearDisplayText();
     addLineToBuffer("Query:");
@@ -267,26 +427,45 @@ void setup() {
   }
 
   clearDisplayText();
-  display.println("Connecting...");
-  display.println("SSID: " + String(ssid));
-  display.println("Server: " + serverIP);
+  display.println("ESP32 Ollama Client");
+  display.println("Initializing...");
   display.display();
-  delay(500);
+  delay(1000);
 
-  WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED)
-    delay(300);
-
-  // New: ask server which model is running, then show welcome
-  fetchServerModel();
-  displayWelcome();
+  // Attempt initial connection with default credentials
+  if (connectToWiFi(wifiSSID, wifiPassword)) {
+    fetchServerModel();
+    displayWelcome();
+  } else {
+    clearDisplayText();
+    display.println("WiFi failed!");
+    display.println("Use serial cmd:");
+    display.println("setwifi:ssid,pass");
+    display.println("or 'connect' to retry");
+    display.display();
+  }
+  
+  Serial.println("\n=== ESP32 Ollama Client ===");
+  Serial.println("Available commands:");
+  Serial.println("setwifi:ssid,password  - Change WiFi credentials");
+  Serial.println("setip:192.168.x.x      - Change server IP");
+  Serial.println("setport:5005           - Change server port");
+  Serial.println("status                  - Show current status");
+  Serial.println("connect                 - Attempt WiFi connection");
+  Serial.println("disconnect              - Disconnect WiFi");
+  Serial.println("Your question here      - Send query to Ollama");
+  Serial.println("===========================\n");
 }
 
 // ---------------- LOOP ----------------
 void loop() {
+  // Auto-reconnect logic
+  if (!wifiConnected) {
+    attemptWiFiConnection();
+  }
 
   // ---- BUTTON 1 ----
-  if (digitalRead(BTN1) == LOW) {
+  if (digitalRead(BTN1) == LOW && wifiConnected) {
     clearDisplayText();
     addLineToBuffer("Query:");
     addLineToBuffer(q1);         // mostrar a pergunta (via buffer)
@@ -295,10 +474,17 @@ void loop() {
     delay(1000);                 // esperar antes de enviar
     askOllamaStream(q1);
     delay(500);
+  } else if (digitalRead(BTN1) == LOW && !wifiConnected) {
+    clearDisplayText();
+    display.println("No WiFi!");
+    display.println("Connect first");
+    display.display();
+    delay(2000);
+    displayWelcome();
   }
 
   // ---- BUTTON 2 ----
-  if (digitalRead(BTN2) == LOW) {
+  if (digitalRead(BTN2) == LOW && wifiConnected) {
     clearDisplayText();
     addLineToBuffer("Query:");
     addLineToBuffer(q2);         // mostrar a pergunta (via buffer)
@@ -307,6 +493,13 @@ void loop() {
     delay(1000);                 // esperar antes de enviar
     askOllamaStream(q2);
     delay(500);
+  } else if (digitalRead(BTN2) == LOW && !wifiConnected) {
+    clearDisplayText();
+    display.println("No WiFi!");
+    display.println("Connect first");
+    display.display();
+    delay(2000);
+    displayWelcome();
   }
   
   // ---- SERIAL INPUT ----
